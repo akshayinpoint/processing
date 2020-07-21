@@ -30,8 +30,8 @@ from processing.utils.paths import videos
 # NOTE(xames3): Milestones are disabled for security reasons. Need to
 # enable them once proper implementation is done.
 
-_AWS_ACCESS_KEY = 'AKIAJNK6OOHHF2XWAQAQ'
-_AWS_SECRET_KEY = '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'
+_AWS_ACCESS_KEY = 'XAMES3'
+_AWS_SECRET_KEY = 'XAMES3'
 
 
 def calling_processing(json_obj: str, log: logging.Logger) -> bool:
