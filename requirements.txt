@@ -1,0 +1,11 @@
+imutils
+opencv-contrib-python
+boto3
+autopep8
+pylint
+google-cloud-storage
+azure-storage-blob
+requests
+peewee
+mtcnn
+tensorflow
