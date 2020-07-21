@@ -124,7 +124,7 @@ def compress_video(file: str, log: logging.Logger) -> str:
     Path of the temporary duplicate file created.
   """
   score, _ = calc_ssim_psnr(file)
-  log.info(f'Analyzed score: {score:>2d}%')
+  log.info(f'Analyzed score: {round(score, 2)}%')
 
   if score < 50.0:
     log.info('Applying 20% compression...')
