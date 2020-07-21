@@ -27,9 +27,6 @@ from processing.utils.generate import bucket_name, order_name, video_type
 from processing.utils.local import rename_aaaa_file, rename_original_file
 from processing.utils.paths import videos
 
-# NOTE(xames3): Milestones are disabled for security reasons. Need to
-# enable them once proper implementation is done.
-
 _AWS_ACCESS_KEY = 'XAMES3'
 _AWS_SECRET_KEY = 'XAMES3'
 
@@ -173,7 +170,6 @@ def spin(json_obj: str,
 
     log.info('Processing Engine loaded.')
     log.info(f'Processing Engine started spinning for angle #{camera}...')
-    log.warning('Disabling Milestones updation for security reasons...')
 
     if org_file:
       log.info(f'Prime base file "{os.path.basename(org_file)}" acquired.')
@@ -198,19 +194,19 @@ def spin(json_obj: str,
       else:
         log.info('Skipping motion analysis...')
 
-      # log.info('Updating Event Milestone 02 - Motion Trimming...')
-      # milestone_db = models.MilestoneStatus(work_status_id=db_pk,
-      #                                       milestone_id=2)
-      # milestone_db.save()
-      # log.info('Event Milestone 02 - Motion Trimming: UPDATED')
+      log.info('Updating Event Milestone 02 - Motion Trimming...')
+      milestone_db = models.MilestoneStatus(work_status_id=db_pk,
+                                            milestone_id=2)
+      milestone_db.save()
+      log.info('Event Milestone 02 - Motion Trimming: UPDATED')
 
       log.info(f'Randomly sampling {sampling_rate}% of the original video...')
       trim_sample_section(temp, sampling_rate)
-      # log.info('Updating Event Milestone 03 - Random Sampling...')
-      # milestone_db = models.MilestoneStatus(work_status_id=db_pk,
-      #                                       milestone_id=3)
-      # milestone_db.save()
-      # log.info('Event Milestone 03 - Random Sampling: UPDATED')
+      log.info('Updating Event Milestone 03 - Random Sampling...')
+      milestone_db = models.MilestoneStatus(work_status_id=db_pk,
+                                            milestone_id=3)
+      milestone_db.save()
+      log.info('Event Milestone 03 - Random Sampling: UPDATED')
 
       if not trim:
         trimpress = False
@@ -221,11 +217,11 @@ def spin(json_obj: str,
       if compress:
         log.info('Analyzing and compressing video...')
         final = compress_video(final, log)
-        # log.info('Updating Event Milestone 04 - QA & Compression...')
-        # milestone_db = models.MilestoneStatus(work_status_id=db_pk,
-        #                                       milestone_id=4)
-        # milestone_db.save()
-        # log.info('Event Milestone 04 - QA & Compression: UPDATED')
+        log.info('Updating Event Milestone 04 - QA & Compression...')
+        milestone_db = models.MilestoneStatus(work_status_id=db_pk,
+                                              milestone_id=4)
+        milestone_db.save()
+        log.info('Event Milestone 04 - QA & Compression: UPDATED')
 
         if trimpress:
           trimmed = trimming_callable(json_data, final, log)
@@ -235,11 +231,11 @@ def spin(json_obj: str,
 
       if trimmed:
         upload.extend(trimmed)
-      # log.info('Updating Event Milestone 05 - Trimming Videos...')
-      # milestone_db = models.MilestoneStatus(work_status_id=db_pk,
-      #                                       milestone_id=5)
-      # milestone_db.save()
-      # log.info('Event Milestone 05 - Trimming Videos: UPDATED')
+      log.info('Updating Event Milestone 05 - Trimming Videos...')
+      milestone_db = models.MilestoneStatus(work_status_id=db_pk,
+                                            milestone_id=5)
+      milestone_db.save()
+      log.info('Event Milestone 05 - Trimming Videos: UPDATED')
 
       if count_obj:
         for idx in upload:
@@ -275,9 +271,9 @@ def spin(json_obj: str,
         upload = addons
         addons = []
 
-      # log.info('Updating Event Milestone 06 - Addon Features...')
-      # milestone_status = save_milestone(db_pk, 6)
-      # log.info('Event Milestone 06 - Addon Features: UPDATED')
+      log.info('Updating Event Milestone 06 - Addon Features...')
+      save_milestone(db_pk, 6)
+      log.info('Event Milestone 06 - Addon Features: UPDATED')
 
       try:
         create_s3_bucket(_AWS_ACCESS_KEY, _AWS_SECRET_KEY, bucket[:-4], log)
@@ -291,20 +287,20 @@ def spin(json_obj: str,
         urls.append(url)
         log.info(f'Uploaded {idx + 1}/{len(upload)} on to S3 bucket.')
       
-      # log.info('Updating Event Milestone 07 - Video Upload...')
-      # milestone_status = save_milestone(db_pk, 7)
-      # log.info('Event Milestone 07 - Video Upload: UPDATED')
+      log.info('Updating Event Milestone 07 - Video Upload...')
+      save_milestone(db_pk, 7)
+      log.info('Event Milestone 07 - Video Upload: UPDATED')
 
       smash_db(db_order, upload, urls, log)
-      # log.info('Updating Event Milestone 08 - Database Hit...')
-      # milestone_status = save_milestone(db_pk, 8)
-      # log.info('Event Milestone 08 - Database Hit: UPDATED')
+      log.info('Updating Event Milestone 08 - Database Hit...')
+      save_milestone(db_pk, 8)
+      log.info('Event Milestone 08 - Database Hit: UPDATED')
 
       log.info('Cleaning up secure directory...')
       shutil.rmtree(init_path)
-      # log.info('Updating Event Milestone 09 - Final Cleanup...')
-      # milestone_status = save_milestone(db_pk, 9)
-      # log.info('Event Milestone 09 - Final Cleanup: UPDATED')
+      log.info('Updating Event Milestone 09 - Final Cleanup...')
+      save_milestone(db_pk, 9)
+      log.info('Event Milestone 09 - Final Cleanup: UPDATED')
       log.info('Updating admin via email.')
       email_to_admin_for_order_success(json_data.get('order_pk', 0))
       log.info(f'Processing Engine ran for about {now() - start}.')
