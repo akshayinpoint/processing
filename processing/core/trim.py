@@ -85,7 +85,7 @@ def trim_num_parts(file: str,
   split_part = duration(file) / num_parts
   start = 0
   # Start splitting the videos into 'num_parts' equal parts.
-  video_list = []
+  temp_list, video_list = [], []
   for idx in range(1, num_parts + 1):
     start, end = start, start + split_part
     trim_video(file, filename(file, idx), start, end)
@@ -100,7 +100,10 @@ def trim_num_parts(file: str,
           end = start + clip_length
         file, temp = quick_rename(file)
         trim_video(temp, file, start, end)
+        temp_list.append(temp)
         time.sleep(2.0)
+  for _idx in temp_list:
+    os.remove(_idx)
   if random_sequence:
     return random.shuffle(video_list)
   else:
@@ -246,3 +249,20 @@ def trim_by_points(file: str,
     trim_video(file, filename(file, idx), start_time * _factor,
                end_time * _factor)
   return filename(file, idx)
+
+
+def trim_uniformly(file: str,
+                   sampling_rate: Union[float, int, str] = 30,
+                   clip_length: Union[float, int, str] = 30) -> List:
+  """Trims video uniformly with cumulative sampling rate."""
+  video_list = []
+  total_length = duration(file)
+  sampling_rate = float(sampling_rate)
+  clip_length = int(clip_length)
+
+  sampled_length = total_length * (sampling_rate / 100)
+  parts = int(sampled_length / clip_length)
+
+  video_list.append(trim_num_parts(file, parts, True,
+                                   clip_length, random_sequence=False))
+  return video_list
