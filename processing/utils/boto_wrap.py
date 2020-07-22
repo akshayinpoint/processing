@@ -112,7 +112,7 @@ def upload_to_bucket(access_key: str,
         s3.upload_file(filename, bucket_name, s3_name,
                         ExtraArgs={'ACL': 'public-read',
                                   'ContentType': 'video/mp4'})
-        log.info(f'{s3_name} file uploaded on to Amazon S3 bucket.')
+        log.debug(f'{s3_name} file uploaded on to Amazon S3 bucket.')
         break
       else:
         log.info('Internet not available. Retrying upload after 30 secs.')
