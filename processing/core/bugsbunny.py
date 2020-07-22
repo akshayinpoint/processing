@@ -29,29 +29,6 @@ _AWS_ACCESS_KEY = 'XAMES3'
 _AWS_SECRET_KEY = 'XAMES3'
 
 
-def calling_processing(json_obj: str, log: logging.Logger) -> bool:
-  """This is something which works with/on REST api."""
-  try:
-    header = {'api-key': ('epVgnissecorP2020yjbadsdsa05jdagdsah22a'
-                          'll0ahm0duil0lah03333fo0r33eve0ryt0hin0g')}
-
-    #UAT and Staging
-    #URL = 'http://64.227.0.147:9000/new_connection_order/'
-    #URL = 'http://127.0.0.1:9000/new_connection_order/'
-
-    #Production
-    URL = 'http://161.35.6.215:9000/new_connection_order/'
-
-    response = requests.post(URL, json.dumps(json_obj), headers=header)
-    log.info(f'Response status: {response}')
-
-    return True
-  except Exception as error:
-    log.exception(error)
-    log.critical('Something went wrong while running calling_processing().')
-    return False
-
-
 def trimming_callable(json_data: dict,
                       final_file: str,
                       log: logging.Logger) -> Union[Optional[List], str]:
@@ -61,6 +38,8 @@ def trimming_callable(json_data: dict,
   clip_length = json_data.get('clip_length', 30)
   sampling_rate = json_data['sampling_rate']
   db_order = json_data.get('order_pk', 0)
+
+  sampling_rate = 99.00 if float(sampling_rate) == 100.00 else sampling_rate
 
   _files = int((duration(final_file) *
                (float(sampling_rate) / 100)) / int(clip_length))
@@ -196,7 +175,7 @@ def spin(json_obj: str,
         trimmed = trimming_callable(json_data, final, log)
 
       if trimmed:
-        upload.extend(trimmed)
+        upload.extend(trimmed[0])
       log.info('Updating Event Milestone 04 - Trimming Videos...')
       milestone_db = models.MilestoneStatus(work_status_id=db_pk,
                                             milestone_id=4)

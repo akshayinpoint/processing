@@ -4,6 +4,7 @@ import os
 import random
 import time
 from datetime import datetime
+from math import ceil, floor, modf
 from typing import List, Optional, Union
 
 from moviepy.editor import VideoFileClip as vfc
@@ -261,8 +262,16 @@ def trim_uniformly(file: str,
   clip_length = int(clip_length)
 
   sampled_length = total_length * (sampling_rate / 100)
-  parts = int(sampled_length / clip_length)
+
+  parts = sampled_length / clip_length
+  parts = ceil(parts) if modf(parts)[0] > 0.75 else floor(parts)
+  parts = 1 if parts == 0 else parts
 
   video_list.append(trim_num_parts(file, parts, True,
                                    clip_length, random_sequence=False))
+
+  if len(video_list) > 1:
+    if duration(video_list[-1]) < (0.75 * clip_length):
+      video_list[:-1]
+
   return video_list
