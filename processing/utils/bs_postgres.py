@@ -55,10 +55,10 @@ def create_video_map_obj(order_id: Union[int, str],
                         video_id=video_id,
                         video_url=video_url,
                         video_file_name=video_file_name)
-    log.info("Closing PeeWee connection...")
+    log.debug("Closing PeeWee connection...")
     db.close()
-  except Exception as error:
-    log.exception(error)
+  except Exception:
+    log.debug("Skipping video mapping using Peewee...")
   global __db_connect
   __db_connect = None
 
