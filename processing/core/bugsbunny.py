@@ -14,12 +14,10 @@ import requests
 from app import models
 from app.email import (email_to_admin_for_order_fail,
                        email_to_admin_for_order_success)
-from processing.core.redact import redact_faces, redact_license_plates
 from processing.core.motion import track_motion
+from processing.core.redact import redact_faces, redact_license_plates
 from processing.core.sylvester import compress_video
-from processing.core.trim import (trim_by_factor, trim_by_points,
-                                  trim_num_parts, trim_sample_section,
-                                  trim_sub_sample)
+from processing.core.trim import duration, trim_uniformly
 from processing.utils.boto_wrap import create_s3_bucket, upload_to_bucket
 from processing.utils.bs_postgres import create_video_map_obj
 from processing.utils.common import now
@@ -60,38 +58,15 @@ def trimming_callable(json_data: dict,
   """Trimming function."""
   trimmed = []
 
-  trim_type = json_data['trim_type']
   clip_length = json_data.get('clip_length', 30)
-  trim_factor = json_data.get('trim_factor', 's')
-  last_clip = json_data.get('last_clip', False)
-  number_of_clips = json_data.get('number_of_clips', 24)
-  equal_distribution = json_data.get('equal_distribution', True)
-  random_start = json_data.get('random_start', True)
-  random_sequence = json_data.get('random_sequence', True)
-  start_time = json_data['start_time']
-  end_time = json_data['end_time']
-  sample_start_time = json_data['sample_start_time']
-  sample_end_time = json_data['sample_end_time']
-  timestamp_format = json_data.get('timestamp_format', '%H:%M:%S')
-  pt_start_time = json_data.get('point_start_time', 0)
-  pt_end_time = json_data.get('point_end_time', 30)
+  sampling_rate = json_data['sampling_rate']
+  db_order = json_data.get('order_pk', 0)
 
-  if trim_type == 'trim_by_factor':
-    log.info('Trimming video by factor.')
-    trimmed = trim_by_factor(final_file, trim_factor, clip_length, last_clip)
-  elif trim_type == 'trim_num_parts':
-    log.info(f'Trimming video in {number_of_clips} parts.')
-    trimmed = trim_num_parts(final_file, number_of_clips, equal_distribution,
-                             clip_length, random_start, random_sequence)
-  elif trim_type == 'trim_sub_sample':
-    log.info('Trimming portion of the video as per timestamp.')
-    trimmed = trim_sub_sample(final_file, start_time, end_time,
-                              sample_start_time, sample_end_time,
-                              timestamp_format)
-  elif trim_type == 'trim_by_points':
-    log.info('Trimming video as per start & end time.')
-    trimmed = trim_by_points(final_file, pt_start_time, pt_end_time,
-                             trim_factor)
+  _files = int((duration(final_file) *
+               (float(sampling_rate) / 100)) / int(clip_length))
+  log.info(f"Processing Engine will create {_files}-{_files + 1} "
+           f"video(s) for Order ID: {db_order}.")
+  trimmed = trim_uniformly(final_file, sampling_rate, clip_length)
 
   return trimmed
 
@@ -111,8 +86,8 @@ def write_to_db(order_id: Union[int, str],
     video_file_name = idx['file_name']
     try:
       create_video_map_obj(order_id, video_id, video_url, video_file_name, log)
-    except Exception as error:
-      log.exception(error)
+    except Exception:
+      log.warning("Skipping DB injection using Peewee...")
 
 
 def smash_db(order_id: int,
@@ -154,7 +129,6 @@ def spin(json_obj: str,
     area = json_data.get('area_code', 'e')
     camera = json_data.get('camera_id', 0)
     org_file = json_data.get('org_file', None)
-    sampling_rate = json_data['sampling_rate']
     motion = json_data.get('analyze_motion', False)
     count_obj = json_data.get('count_obj', False)
     objects = json_data.get('objects', None)
@@ -200,14 +174,6 @@ def spin(json_obj: str,
       milestone_db.save()
       log.info('Event Milestone 02 - Motion Trimming: UPDATED')
 
-      log.info(f'Randomly sampling {sampling_rate}% of the original video...')
-      trim_sample_section(temp, sampling_rate)
-      log.info('Updating Event Milestone 03 - Random Sampling...')
-      milestone_db = models.MilestoneStatus(work_status_id=db_pk,
-                                            milestone_id=3)
-      milestone_db.save()
-      log.info('Event Milestone 03 - Random Sampling: UPDATED')
-
       if not trim:
         trimpress = False
 
@@ -217,11 +183,11 @@ def spin(json_obj: str,
       if compress:
         log.info('Analyzing and compressing video...')
         final = compress_video(final, log)
-        log.info('Updating Event Milestone 04 - QA & Compression...')
+        log.info('Updating Event Milestone 03 - QA & Compression...')
         milestone_db = models.MilestoneStatus(work_status_id=db_pk,
-                                              milestone_id=4)
+                                              milestone_id=3)
         milestone_db.save()
-        log.info('Event Milestone 04 - QA & Compression: UPDATED')
+        log.info('Event Milestone 03 - QA & Compression: UPDATED')
 
         if trimpress:
           trimmed = trimming_callable(json_data, final, log)
@@ -231,11 +197,11 @@ def spin(json_obj: str,
 
       if trimmed:
         upload.extend(trimmed)
-      log.info('Updating Event Milestone 05 - Trimming Videos...')
+      log.info('Updating Event Milestone 04 - Trimming Videos...')
       milestone_db = models.MilestoneStatus(work_status_id=db_pk,
-                                            milestone_id=5)
+                                            milestone_id=4)
       milestone_db.save()
-      log.info('Event Milestone 05 - Trimming Videos: UPDATED')
+      log.info('Event Milestone 04 - Trimming Videos: UPDATED')
 
       if count_obj:
         for idx in upload:
@@ -271,9 +237,9 @@ def spin(json_obj: str,
         upload = addons
         addons = []
 
-      log.info('Updating Event Milestone 06 - Addon Features...')
-      save_milestone(db_pk, 6)
-      log.info('Event Milestone 06 - Addon Features: UPDATED')
+      log.info('Updating Event Milestone 07 - Addon Features...')
+      save_milestone(db_pk, 7)
+      log.info('Event Milestone 07 - Addon Features: UPDATED')
 
       try:
         create_s3_bucket(_AWS_ACCESS_KEY, _AWS_SECRET_KEY, bucket[:-4], log)
@@ -287,20 +253,20 @@ def spin(json_obj: str,
         urls.append(url)
         log.info(f'Uploaded {idx + 1}/{len(upload)} on to S3 bucket.')
       
-      log.info('Updating Event Milestone 07 - Video Upload...')
-      save_milestone(db_pk, 7)
-      log.info('Event Milestone 07 - Video Upload: UPDATED')
+      log.info('Updating Event Milestone 06 - Video Upload...')
+      save_milestone(db_pk, 6)
+      log.info('Event Milestone 06 - Video Upload: UPDATED')
 
       smash_db(db_order, upload, urls, log)
-      log.info('Updating Event Milestone 08 - Database Hit...')
-      save_milestone(db_pk, 8)
-      log.info('Event Milestone 08 - Database Hit: UPDATED')
+      log.info('Updating Event Milestone 07 - Database Hit...')
+      save_milestone(db_pk, 7)
+      log.info('Event Milestone 07 - Database Hit: UPDATED')
 
       log.info('Cleaning up secure directory...')
       shutil.rmtree(init_path)
-      log.info('Updating Event Milestone 09 - Final Cleanup...')
-      save_milestone(db_pk, 9)
-      log.info('Event Milestone 09 - Final Cleanup: UPDATED')
+      log.info('Updating Event Milestone 08 - Final Cleanup...')
+      save_milestone(db_pk, 8)
+      log.info('Event Milestone 08 - Final Cleanup: UPDATED')
       log.info('Updating admin via email.')
       email_to_admin_for_order_success(json_data.get('order_pk', 0))
       log.info(f'Processing Engine ran for about {now() - start}.')
