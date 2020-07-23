@@ -140,10 +140,8 @@ def compress_video(file: str, log: logging.Logger) -> str:
   temp = os.path.join(os.path.dirname(file),
                       ''.join([Path(file).stem, '_temp_xa', ext]))
 
-  log.info(f'Original file size on disk is {file_size(file)}')
   os.rename(file, temp)
   os.system("ffmpeg -loglevel error -y -i {source}  -vcodec libx264 -b {compresion} {file_name}".format(
       source=temp, compresion=bitrate, file_name=file))
-  log.info(f'Compressed file size on disk is {file_size(file)}')
   os.remove(temp)
   return file
