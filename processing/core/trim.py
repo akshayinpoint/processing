@@ -57,12 +57,12 @@ def trim_video(file: str,
     print(_nerr)
 
 
-def trim_num_parts(file: str,
-                   num_parts: int,
-                   equal_distribution: bool = False,
-                   clip_length: Union[float, int, str] = 30,
-                   random_start: bool = True,
-                   random_sequence: bool = True) -> Optional[List]:
+def trim_num_parts_legacy(file: str,
+                          num_parts: int,
+                          equal_distribution: bool = False,
+                          clip_length: Union[float, int, str] = 30,
+                          random_start: bool = True,
+                          random_sequence: bool = True) -> Optional[List]:
   """Trim video in number of equal parts.
 
   Trims the video as per the number of clips required.
@@ -252,6 +252,49 @@ def trim_by_points(file: str,
   return filename(file, idx)
 
 
+def trim_num_parts(file: str,
+                   num_parts: int,
+                   clip_length: Union[float, int, str] = 30,
+                   random_sequence: bool = True) -> Optional[List]:
+  """Trim video in number of equal parts.
+
+  Trims the video as per the number of clips required.
+  Args:
+    file: File to be used for trimming.
+    num_parts: Number of videos to be trimmed into.
+    codec: Codec (default: libx264 -> .mp4) to be used while trimming.
+    bitrate: Bitrate (default: min. 400) used while trimming.
+    fps: FPS (default: 24) of the trimmed video clips.
+    audio: Boolean (default: False) value to have audio in trimmed
+            videos.
+    preset: The speed (default: ultrafast) used for applying the
+            compression technique on the trimmed videos.
+    threads: Number of threads (default: 15) to be used for trimming.
+    verbose: Boolean (default: False) value to display the status.
+    return_list: Boolean (default: True) value to return list of all the
+                 trimmed files.
+  """
+  num_parts = int(num_parts)
+  clip_length = int(clip_length)
+  split_part = duration(file) / num_parts
+  range_start = 1
+  # Start splitting the videos into 'num_parts' equal parts.
+  video_list = []
+  for idx in range(1, num_parts + 1):
+    range_start, range_end = range_start, range_start + split_part
+    if clip_length <= split_part:
+      start = random.randint(int(range_start), int(range_end - clip_length))
+      end = start + clip_length
+      trim_video(file, filename(file, idx), start, end)
+      video_list.append(filename(file, idx))
+    range_start += split_part
+
+  if random_sequence:
+    return random.shuffle(video_list)
+  else:
+    return video_list
+
+
 def trim_uniformly(file: str,
                    sampling_rate: Union[float, int, str] = 30,
                    clip_length: Union[float, int, str] = 30) -> List:
@@ -267,8 +310,7 @@ def trim_uniformly(file: str,
   parts = ceil(parts) if modf(parts)[0] > 0.75 else floor(parts)
   parts = 1 if parts == 0 else parts
 
-  video_list.append(trim_num_parts(file, parts, True,
-                                   clip_length, random_sequence=False))
+  video_list.append(trim_num_parts(file, parts, clip_length, False))
 
   if len(video_list) > 1:
     if duration(video_list[-1]) < (0.75 * clip_length):
