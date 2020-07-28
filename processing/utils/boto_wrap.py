@@ -518,7 +518,7 @@ def analyze_storage_consumed(access_key: str,
       customer[k].append(v)
 
     size = 0
-    log.info(f'Calculating storage size used by "{customer_id}"')
+    log.info(f'Calculating storage size used by "{customer_id}"...')
 
     for idx in customer[customer_id]:
       bucket = s3.Bucket(idx)
