@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import shutil
+from uuid import uuid4
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Union
@@ -18,7 +19,8 @@ from processing.core.motion import track_motion
 from processing.core.redact import redact_faces, redact_license_plates
 from processing.core.sylvester import compress_video
 from processing.core.trim import duration, trim_uniformly
-from processing.utils.boto_wrap import create_s3_bucket, upload_to_bucket
+from processing.utils.boto_wrap import (access_file, create_s3_bucket,
+                                        upload_to_bucket)
 from processing.utils.bs_postgres import create_video_map_obj
 from processing.utils.common import now
 from processing.utils.generate import bucket_name, order_name, video_type
@@ -123,8 +125,11 @@ def spin(json_obj: str,
 
     log.info('Processing Engine loaded.')
     log.info(f'Processing Engine started spinning for angle #{camera}...')
+    log.info("Fetching file for processing from S3 bucket...")
+    status, org_file = access_file(_AWS_ACCESS_KEY, _AWS_SECRET_KEY, org_file,
+                                   str(uuid4()), log, "archived-order-uploads")
 
-    if org_file:
+    if status:
       log.info(f'Prime base file "{os.path.basename(org_file)}" acquired.')
       log.info(f'Creating directory for processing...')
       init_clone = rename_original_file(org_file, bucket, order)
