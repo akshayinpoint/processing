@@ -524,4 +524,4 @@ def analyze_storage_consumed(access_key: str,
       bucket = s3.Bucket(idx)
       for obj in bucket.objects.all():
         size += obj.size
-    return f'{round(size / 1000 / 1024 / 1024, 3)} GB'
+    return f'{round(size / 1000 / 1024 / (5 * 1024), 3)} GB'
