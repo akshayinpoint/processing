@@ -14,7 +14,7 @@ with open('requirements.txt', 'r') as requirements:
 
 setup(
   name="processing",
-  version="2.0.0",
+  version="3.0.0",
   url="https://github.com/Inpointtech/processing/",
   author="XA",
   author_email="akshay@inpointtech.com",
@@ -51,7 +51,7 @@ setup(
   description=__doc__,
   long_description=use_readme(),
   long_description_content_type='text/markdown',
-  keywords='vpe machine learning artificial intelligence pandas numpy cv2',
+  keywords='processing machine learning artificial intelligence numpy cv2',
   zip_safe=False,
   install_requires=required_packages,
   python_requires='~=3.6',
