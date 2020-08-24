@@ -6,7 +6,8 @@ import string
 # Dictionary for characters from range 1 - 26.
 h_26 = {k: v for k, v in enumerate(string.ascii_lowercase, start=1)}
 # Dictionary for characters from range 1 - 676.
-t_676 = itertools.product(string.ascii_lowercase, string.ascii_lowercase)
+long_list = list(string.ascii_lowercase) + list(string.ascii_uppercase)
+t_676 = itertools.product(long_list, long_list)
 h_676 = {k: v for k, v in enumerate(list(map(''.join, t_676)), start=1)}
 # Dictionary for characters from range 1 - 17576.
 t_17k = itertools.product(string.ascii_lowercase,
