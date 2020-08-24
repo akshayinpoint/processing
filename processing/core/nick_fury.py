@@ -17,7 +17,7 @@ else:
 
 def sheep(json_obj: dict, db_pk: int) -> None:
   """Sheep thread object.
-  
+
   Args:
     json_obj: JSON dictionary which Admin sends to VPE.
     db_pk: Primary key of Database entry.

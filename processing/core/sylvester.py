@@ -8,8 +8,8 @@ import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from processing.utils.common import file_size
-from processing.utils.paths import reference_video
+from app.processing.processing.utils.common import file_size
+from app.processing.processing.utils.paths import reference_video
 
 
 def print_stderr(message) -> None:
@@ -111,7 +111,7 @@ def new_bitrate(file: str) -> int:
   return int(bit.decode().replace('"', '').strip('format.bit_rate='))
 
 
-def compress_video(file: str, log: logging.Logger) -> str:
+def compress_video(file: str, bitrate: int) -> str:
   """Compresses video.
 
   Compresses video as per the requirements.
@@ -123,23 +123,9 @@ def compress_video(file: str, log: logging.Logger) -> str:
   Returns:
     Path of the temporary duplicate file created.
   """
-  score, _ = calc_ssim_psnr(file)
-  log.info(f'Analyzed score: {round(score, 2)}%')
-
-  if score < 50.0:
-    log.info('Applying 20% compression...')
-    bitrate = int(new_bitrate(file) * 0.8)
-  elif 88.0 >= score >= 50.0:
-    log.info('Applying 50% compression...')
-    bitrate = int(new_bitrate(file) * 0.5)
-  else:
-    log.info('Applying 70% compression...')
-    bitrate = int(new_bitrate(file) * 0.3)
-
   ext = os.path.splitext(file)[1]
   temp = os.path.join(os.path.dirname(file),
                       ''.join([Path(file).stem, '_temp_xa', ext]))
-
   os.rename(file, temp)
   os.system("ffmpeg -loglevel error -y -i {source}  -vcodec libx264 -b {compresion} {file_name}".format(
       source=temp, compresion=bitrate, file_name=file))
