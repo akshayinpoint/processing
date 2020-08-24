@@ -3,29 +3,36 @@
 import json
 import logging
 import os
+import random
 import shutil
-from uuid import uuid4
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional, Union
+from uuid import uuid4
 
 import requests
 
 # pyright: reportMissingImports=false
 from app import models
-from app.email import (email_to_admin_for_order_fail,
-                       email_to_admin_for_order_success)
-from processing.core.motion import track_motion
-from processing.core.redact import redact_faces, redact_license_plates
-from processing.core.sylvester import compress_video
-from processing.core.trim import duration, trim_uniformly
-from processing.utils.boto_wrap import (access_file, create_s3_bucket,
-                                        upload_to_bucket)
-from processing.utils.bs_postgres import create_video_map_obj
-from processing.utils.common import now
-from processing.utils.generate import bucket_name, order_name, video_type
-from processing.utils.local import rename_aaaa_file, rename_original_file
-from processing.utils.paths import videos
+from app.processing.processing.core.email import (
+    email_to_admin_for_order_failure, email_to_admin_for_order_success)
+from app.processing.processing.core.motion import track_motion
+from app.processing.processing.core.redact import (redact_faces,
+                                                   redact_license_plates)
+from app.processing.processing.core.sylvester import (calc_ssim_psnr,
+                                                      compress_video,
+                                                      new_bitrate)
+from app.processing.processing.core.trim import duration, trim_uniformly
+from app.processing.processing.utils.boto_wrap import (access_file,
+                                                       create_s3_bucket,
+                                                       upload_to_bucket)
+from app.processing.processing.utils.bs_postgres import create_video_map_obj
+from app.processing.processing.utils.common import now
+from app.processing.processing.utils.generate import (bucket_name, order_name,
+                                                      video_type)
+from app.processing.processing.utils.local import (rename_aaaa_file,
+                                                   rename_original_file)
+from app.processing.processing.utils.paths import videos
 
 _AWS_ACCESS_KEY = 'XAMES3'
 _AWS_SECRET_KEY = 'XAMES3'
@@ -43,11 +50,13 @@ def trimming_callable(json_data: dict,
 
   sampling_rate = 99.00 if float(sampling_rate) == 100.00 else sampling_rate
 
-  _files = int((duration(final_file) *
-               (float(sampling_rate) / 100)) / int(clip_length))
+  _files = int((duration(final_file) * (float(sampling_rate) / 100)))
+  _files = int(_files) / int(clip_length)
+
   log.info(f"Processing Engine will create {_files}-{_files + 1} "
            f"video(s) for Order ID: {db_order}.")
   trimmed = trim_uniformly(final_file, sampling_rate, clip_length)
+  json_data['clips_count'] = len(trimmed)
 
   return trimmed
 
@@ -68,7 +77,7 @@ def write_to_db(order_id: Union[int, str],
     try:
       create_video_map_obj(order_id, video_id, video_url, video_file_name, log)
     except Exception:
-      log.warning("Skipping DB injection using Peewee...")
+      log.warning("An exception occured while pushing data into ORM DB...")
 
 
 def smash_db(order_id: int,
@@ -130,6 +139,7 @@ def spin(json_obj: str,
                                    str(uuid4()), log, "archived-order-uploads")
 
     if status:
+      json_data['f_name'] = os.path.basename(org_file)
       log.info(f'Prime base file "{os.path.basename(org_file)}" acquired.')
       log.info(f'Creating directory for processing...')
       init_clone = rename_original_file(org_file, bucket, order)
@@ -164,28 +174,38 @@ def spin(json_obj: str,
       log.info('Renaming original video as per internal nomenclature...')
       final = rename_aaaa_file(cloned, video_type(compress, trim, trimpress))
 
-      if compress:
-        log.info('Analyzing and compressing video...')
-        final = compress_video(final, log)
-        log.info('Updating Event Milestone 03 - QA & Compression...')
-        milestone_db = models.MilestoneStatus(work_status_id=db_pk,
-                                              milestone_id=3)
-        milestone_db.save()
-        log.info('Event Milestone 03 - QA & Compression: UPDATED')
-
-        if trimpress:
-          trimmed = trimming_callable(json_data, final, log)
-
-      elif trim:
-        trimmed = trimming_callable(json_data, final, log)
-
-      if trimmed:
-        upload.extend(trimmed[0])
-      log.info('Updating Event Milestone 04 - Trimming Videos...')
+      trimmed = trimming_callable(json_data, final, log)
+      log.info('Updating Event Milestone 03 - Trimming Videos...')
       milestone_db = models.MilestoneStatus(work_status_id=db_pk,
                                             milestone_id=4)
       milestone_db.save()
-      log.info('Event Milestone 04 - Trimming Videos: UPDATED')
+      log.info('Event Milestone 03 - Trimming Videos: UPDATED')
+
+      log.info('Analyzing and compressing video...')
+      analyze_video = random.choice(trimmed[0])
+      score, _ = calc_ssim_psnr(analyze_video)
+      log.info(f'Analyzed score: {round(score, 2)}%')
+
+      if score < 50.0:
+        log.info('Applying 20% compression...')
+        bitrate = int(new_bitrate(analyze_video) * 0.8)
+      elif 88.0 >= score >= 50.0:
+        log.info('Applying 50% compression...')
+        bitrate = int(new_bitrate(analyze_video) * 0.5)
+      else:
+        log.info('Applying 70% compression...')
+        bitrate = int(new_bitrate(analyze_video) * 0.3)
+
+      if compress:
+        for comp_idx in trimmed[0]:
+          log.info(f"Compressing video {comp_idx + 1}/{len(trimmed[0])}...")
+          upload.append(compress_video(comp_idx, bitrate))
+
+        log.info('Updating Event Milestone 04 - QA & Compression...')
+        milestone_db = models.MilestoneStatus(work_status_id=db_pk,
+                                              milestone_id=3)
+        milestone_db.save()
+        log.info('Event Milestone 04 - QA & Compression: UPDATED')
 
       if count_obj:
         for idx in upload:
@@ -221,9 +241,9 @@ def spin(json_obj: str,
         upload = addons
         addons = []
 
-      log.info('Updating Event Milestone 07 - Addon Features...')
-      save_milestone(db_pk, 7)
-      log.info('Event Milestone 07 - Addon Features: UPDATED')
+      log.info('Updating Event Milestone 05 - Addon Features...')
+      save_milestone(db_pk, 5)
+      log.info('Event Milestone 05 - Addon Features: UPDATED')
 
       try:
         create_s3_bucket(_AWS_ACCESS_KEY, _AWS_SECRET_KEY, bucket[:-4], log)
@@ -236,7 +256,7 @@ def spin(json_obj: str,
                                file, log, directory=bucket)
         urls.append(url)
         log.info(f'Uploaded {idx + 1}/{len(upload)} on to S3 bucket.')
-      
+
       log.info('Updating Event Milestone 06 - Video Upload...')
       save_milestone(db_pk, 6)
       log.info('Event Milestone 06 - Video Upload: UPDATED')
@@ -252,18 +272,18 @@ def spin(json_obj: str,
       save_milestone(db_pk, 8)
       log.info('Event Milestone 08 - Final Cleanup: UPDATED')
       log.info('Updating admin via email.')
-      email_to_admin_for_order_success(json_data.get('order_pk', 0))
+      email_to_admin_for_order_success(json_data, log)
       log.info(f'Processing Engine ran for about {now() - start}.')
     else:
       log.error("Skipping order creation since Processing Engine could not "
-                "video file for processing.")
+                "find any video file for processing.")
   except KeyboardInterrupt:
     log.error('Spinner interrupted.')
   except Exception as error:
     log.exception(error)
     log.error('Processing failed, updating admin regarding the issue.')
     # pyright: reportUnboundVariable=false
-    email_to_admin_for_order_fail(json_data.get('order_pk', 0))
+    email_to_admin_for_order_failure(json_data, log)
     log.critical('Something went wrong while video processing was running.')
 
 
