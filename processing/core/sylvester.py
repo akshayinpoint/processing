@@ -8,8 +8,8 @@ import tempfile
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from app.processing.processing.utils.common import file_size
-from app.processing.processing.utils.paths import reference_video
+from processing.utils.common import file_size
+from processing.utils.paths import reference_video
 
 
 def print_stderr(message) -> None:

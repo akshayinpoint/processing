@@ -14,25 +14,20 @@ import requests
 
 # pyright: reportMissingImports=false
 from app import models
-from app.processing.processing.core.email import (
-    email_to_admin_for_order_failure, email_to_admin_for_order_success)
-from app.processing.processing.core.motion import track_motion
-from app.processing.processing.core.redact import (redact_faces,
-                                                   redact_license_plates)
-from app.processing.processing.core.sylvester import (calc_ssim_psnr,
-                                                      compress_video,
-                                                      new_bitrate)
-from app.processing.processing.core.trim import duration, trim_uniformly
-from app.processing.processing.utils.boto_wrap import (access_file,
-                                                       create_s3_bucket,
-                                                       upload_to_bucket)
-from app.processing.processing.utils.bs_postgres import create_video_map_obj
-from app.processing.processing.utils.common import now
-from app.processing.processing.utils.generate import (bucket_name, order_name,
-                                                      video_type)
-from app.processing.processing.utils.local import (rename_aaaa_file,
-                                                   rename_original_file)
-from app.processing.processing.utils.paths import videos
+from processing.core.email import (email_to_admin_for_order_failure,
+                                   email_to_admin_for_order_success)
+from processing.core.motion import track_motion
+from processing.core.redact import redact_faces, redact_license_plates
+from processing.core.sylvester import (calc_ssim_psnr, compress_video,
+                                       new_bitrate)
+from processing.core.trim import duration, trim_uniformly
+from processing.utils.boto_wrap import (access_file, create_s3_bucket,
+                                        upload_to_bucket)
+from processing.utils.bs_postgres import create_video_map_obj
+from processing.utils.common import now
+from processing.utils.generate import bucket_name, order_name, video_type
+from processing.utils.local import rename_aaaa_file, rename_original_file
+from processing.utils.paths import videos
 
 _AWS_ACCESS_KEY = 'XAMES3'
 _AWS_SECRET_KEY = 'XAMES3'
