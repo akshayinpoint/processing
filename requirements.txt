@@ -6,4 +6,4 @@ pylint
 requests
 peewee
 mtcnn
-tensorflow
+tensorflow-gpu==2.1.0
